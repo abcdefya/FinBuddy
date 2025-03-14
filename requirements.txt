@@ -1,0 +1,50 @@
+# Core AI libraries
+pyautogen>=0.2.19
+ipython
+huggingface_hub
+transformers
+sentence-transformers
+
+# Financial libraries
+finnhub-python
+yfinance
+mplfinance
+backtrader
+sec_api
+ccxt
+quantlib
+arch
+statsmodels
+scipy
+
+# Data handling
+numpy
+pandas
+pandas_datareader
+pyPDF2
+reportlab
+pdfplumber
+camelot-py
+tabula-py
+
+# Backtesting & optimization
+optuna
+mlflow
+bt
+
+# Historical data
+praw
+tushare
+
+# API & Security
+python-dotenv
+requests-cache
+
+# Performance boost
+numba
+dask
+modin
+
+# Packaging
+setuptools>=41.4.0
+wheel>=0.33.6
