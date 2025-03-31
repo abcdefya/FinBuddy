@@ -1,4 +1,12 @@
-"""This modulde for fetching data from SEC EDGAR archives"""
+"""
+Financial Data Acquisition Module
+
+This module provides tools for retrieving financial regulatory filings
+from public repositories. It handles rate limiting, document formatting,
+and extraction of metadata from financial documents.
+
+Authors: FinBuddy Team
+"""
 
 import json
 import os
@@ -6,386 +14,469 @@ import re
 import requests
 from typing import Optional, Dict, Any, List, Union, Tuple
 import sys
+import webbrowser
+from functools import wraps, lru_cache
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final
 else:
     from typing import Final
 
-import webbrowser
-
 from ratelimit import limits, sleep_and_retry
 
-from .sec_doc import SUPPORTED_FILING_TYPES
+from .document_processor import SUPPORTED_FILING_TYPES
 
-SEC_ARCHIVE_URL: Final[str] = "https://www.sec.gov/Archives/edgar/data"
-SEC_SEARCH_URL: Final[str] = "http://www.sec.gov/cgi-bin/browse-edgar"
-SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions"
+# Public repository endpoints
+FINANCIAL_ARCHIVE_ENDPOINT: Final[str] = "https://www.sec.gov/Archives/edgar/data"
+FINANCIAL_SEARCH_ENDPOINT: Final[str] = "http://www.sec.gov/cgi-bin/browse-edgar"
+FINANCIAL_DATA_ENDPOINT = "https://data.sec.gov/submissions"
 
-def get_filing(
-        accession_number: Union[str, int], cik: Union[str, int], company: str, email: str
+# Rate limiting constants - respect API guidelines
+API_CALLS_PER_SECOND = 10
+API_PERIOD_SECONDS = 1
+
+
+def retrieve_document(
+        document_id: Union[str, int], 
+        entity_id: Union[str, int], 
+        organization: str, 
+        contact_email: str
 ) -> str:
-    """Fetches the filing from SEC EDGAR archives.
+    """
+    Retrieves a financial document from the public repository.
 
     Args:
-        accession_number (Union[str, int]): The accession number of the filing.
-        cik (Union[str, int]): The Central Index Key (CIK) of the company.
-        company (str): The name of the company.
-        email (str): The email address of the user.
+        document_id: The unique identifier of the document
+        entity_id: The identifier of the filing entity
+        organization: The name of the requesting organization
+        contact_email: The contact email for API access
 
     Returns:
-        str: The URL of the filing.
+        The document content as text
 
     Raises:
-        ValueError: If the accession number is not valid.
+        ValueError: If the document_id is invalid
     """
-    session = _get_session(company, email)
-    return _get_filing(session, cik, accession_number)
+    session = _create_api_session(organization, contact_email)
+    return _fetch_document(session, entity_id, document_id)
+
 
 @sleep_and_retry
-@limits(calls=10, period=1)
-def _get_filing(
-    session: requests.Session, cik: Union[str, int], accession_number: Union[str, int]
+@limits(calls=API_CALLS_PER_SECOND, period=API_PERIOD_SECONDS)
+def _fetch_document(
+    session: requests.Session, 
+    entity_id: Union[str, int], 
+    document_id: Union[str, int]
 ) -> str:
-    """"Fetches the filing from SEC EDGAR archives.
+    """
+    Fetches a document from the financial repository with rate limiting.
+    
     Args:
-        session (requests.Session): The requests session.
-        cik (Union[str, int]): The Central Index Key (CIK) of the company.
-        accession_number (Union[str, int]): The accession number of the filing. """
-    url = archive_url(cik, accession_number)
-    company = "mycompany"
-    email = "myemail.com"
-    headers = {
-        "User-Agent": f"{company} ({email})",
-        "Content-type": "text/html",
-    }
-    response = session.get(url, headers=headers)
+        session: The authenticated session for API access
+        entity_id: The identifier of the filing entity
+        document_id: The unique identifier of the document
+        
+    Returns:
+        The document content as text
+        
+    Raises:
+        HTTPError: If the document cannot be retrieved
+    """
+    url = generate_document_url(entity_id, document_id)
+    response = session.get(url)
     response.raise_for_status()
     return response.text
 
 
 @sleep_and_retry
-@limits(calls=10, period=1)
-def get_cik_by_ticker(ticker: str) -> str:
-    """Fetches the CIK number by ticker symbol.
+@limits(calls=API_CALLS_PER_SECOND, period=API_PERIOD_SECONDS)
+def find_entity_by_symbol(
+    symbol: str, 
+    organization: Optional[str] = None, 
+    contact_email: Optional[str] = None
+) -> str:
+    """
+    Finds the entity identifier by market symbol.
 
     Args:
-        ticker (str): The ticker symbol of the company.
+        symbol: The market symbol of the entity
+        organization: The name of the requesting organization
+        contact_email: The contact email for API access
 
     Returns:
-        str: The CIK number of the company.
+        The entity identifier
 
     Raises:
-        ValueError: If the ticker symbol is not valid.
+        ValueError: If the market symbol is invalid or not found
     """
-    cik_re = re.compile(r".*CIK=(\d{10}).*")
-    url = _search_url(ticker)
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-    company = "mycompany"
-    email = "myemail.com"
-    headers ={
-        "User-Agent": f"{company} ({email})",
-        "Content-type": "text/html",
-    }
-    response = requests.get(url, stream=True, headers=headers)
+    session = _create_api_session(organization, contact_email)
+    entity_pattern = re.compile(r".*CIK=(\d{10}).*")
+    url = generate_search_url(symbol)
+    
+    response = session.get(url, stream=True)
     response.raise_for_status()
-    results = cik_re.findall
-    return str(results[0])
-
+    
+    matches = entity_pattern.findall(response.text)
+    if not matches:
+        raise ValueError(f"Could not find entity for symbol: {symbol}")
+    
+    return str(matches[0])
 
 
 @sleep_and_retry
-@limits(calls=10, period=1)
-def get_forms_by_cik(session: requests.Session, cik: Union[str, int]) -> dict:
-    """Fetches the form by CIK number.
-    Gets retrieves dict of recent SEC form filings for a given cik number.
-    Args:
-        session (requests.Session): The requests session.
-        cik (Union[str, int]): The Central Index Key (CIK) of the company.
-
-    Returns:
-        dict: The form data.
-
-    Raises:
-        ValueError: If the CIK number is not valid.
+@limits(calls=API_CALLS_PER_SECOND, period=API_PERIOD_SECONDS)
+def get_filing_history(session: requests.Session, entity_id: Union[str, int]) -> dict:
     """
-    json_name = f"CIK{cik}.json"
-    response = session.get(f"{SEC_SUBMISSIONS_URL}/{json_name}")
+    Retrieves the filing history for an entity.
+    
+    Args:
+        session: The authenticated session for API access
+        entity_id: The identifier of the filing entity
+        
+    Returns:
+        Dictionary mapping document IDs to document types
+        
+    Raises:
+        HTTPError: If the filing history cannot be retrieved
+    """
+    metadata_file = f"CIK{entity_id}.json"
+    response = session.get(f"{FINANCIAL_DATA_ENDPOINT}/{metadata_file}")
     response.raise_for_status()
-    content = json.loads(response.content)
-    recent_forms = content["filings"]["recent"]
-    form_type = {
-        k: v for k, v in zip(recent_forms['accession_number'], recent_forms['form'])
+    
+    data = json.loads(response.content)
+    recent_filings = data["filings"]["recent"]
+    
+    document_mapping = {
+        k: v for k, v in zip(recent_filings['accession_number'], recent_filings['form'])
     }
-    return form_type
+    return document_mapping
 
 
-def _get_recent_acc_num_by_cik(
-        session: requests.Session, cik: Union[str, int], form_types: List[str]
+def _find_recent_document_id_by_entity(
+        session: requests.Session, 
+        entity_id: Union[str, int], 
+        doc_types: List[str]
 ) -> Tuple[str, str]:
-    """Fetches the recent accession number by CIK number.
-
-    Args:
-        session (requests.Session): The requests session.
-        cik (Union[str, int]): The Central Index Key (CIK) of the company.
-        form_type (List[str]): The list of form types.
-
-    Returns:
-        Tuple[str, str]: The accession number and the form type.
-
-    Raises:
-        ValueError: If the CIK number is not valid.
     """
-    retrieve_form = get_forms_by_cik(session, cik)
-    for acc_num, form_type_ in retrieve_form.items():
-        if form_type_ in form_types:
-            return _drop_dashes(acc_num), form_type_
-    raise ValueError(f"No recent filings found for CIK {cik} with form types {form_types}")
-
-
-
-
-def get_recent_acc_by_cik(
-        cik: str,
-        form_type: str,
-        company: Optional[str] = None,
-        email: Optional[str] = None,
-) -> Tuple[str, str]:
-    """Fetches the recent accession number by CIK number.
-
-    Args:
-        cik (str): The Central Index Key (CIK) of the company.
-        form_types (str): The list of form types.
-        company (Optional[str]): The name of the company.
-        email (Optional[str]): The email address of the user.
-
-    Returns:
-        Tuple[str, str]: The accession number and the form type.
-
-    Raises:
-        ValueError: If the CIK number is not valid.
-    """
-    session = _get_session(company, email)
-    return _get_recent_acc_num_by_cik(session, cik, _form_types(form_type))
+    Finds the most recent document ID for an entity by document type.
     
+    Args:
+        session: The authenticated session for API access
+        entity_id: The identifier of the filing entity
+        doc_types: The list of document types to search for
+        
+    Returns:
+        Tuple of (document_id, document_type)
+        
+    Raises:
+        ValueError: If no matching documents are found
+    """
+    document_history = get_filing_history(session, entity_id)
+    
+    for doc_id, doc_type in document_history.items():
+        if doc_type in doc_types:
+            return format_document_id_without_separators(doc_id), doc_type
+            
+    raise ValueError(f"No recent filings found for entity {entity_id} with types {doc_types}")
 
 
-def get_recent_cik_and_acc_by_ticker(
-        ticker: str,
-        form_type: str,
-        company: Optional[str] = None,
-        email: Optional[str] = None,
+def get_recent_document_by_entity(
+        entity_id: str,
+        doc_type: str,
+        organization: Optional[str] = None,
+        contact_email: Optional[str] = None,
+) -> Tuple[str, str]:
+    """
+    Gets the most recent document ID for an entity by document type.
+    
+    Args:
+        entity_id: The identifier of the filing entity
+        doc_type: The document type to search for
+        organization: The name of the requesting organization
+        contact_email: The contact email for API access
+        
+    Returns:
+        Tuple of (document_id, document_type)
+        
+    Raises:
+        ValueError: If no matching documents are found
+    """
+    session = _create_api_session(organization, contact_email)
+    return _find_recent_document_id_by_entity(
+        session, entity_id, expand_document_types(doc_type)
+    )
+
+
+def get_recent_filing_by_symbol(
+        symbol: str,
+        doc_type: str,
+        organization: Optional[str] = None,
+        contact_email: Optional[str] = None,
 ) -> Tuple[str, str, str]:
-    """Fetches the recent CIK and accession number by ticker symbol.Returns 
-    (cik, accession_number, retrieved_form_type) for the given ticker and form_type.
-    The retrieved_form_type may be an amended version of requested form_type, e.g. 10-Q/A for 10-Q.
-
-    Args:
-        ticker (str): The ticker symbol of the company.
-        form_type (str): The form type.
-        company (Optional[str]): The name of the company.
-        email (Optional[str]): The email address of the user.
-
-    Returns:
-        Tuple[str, str, str]: The CIK number, accession number, and form type.
-
-    Raises:
-        ValueError: If the ticker symbol is not valid.
     """
-    session = _get_session(company, email)
-    cik = get_cik_by_ticker(session, ticker)
-    acc_num, retrieved_form_type = _get_recent_acc_num_by_cik(
-        session, cik, _form_types(form_type)
-    )
-    return cik, acc_num, retrieved_form_type
-
-
-def get_form_by_ticker(
-    ticker: str,
-    form_type: str,
-    allow_amended_filing: Optional[bool] = True,
-    company: Optional[str] = None,
-    email: Optional[str] = None,
-) -> str:
-    """Fetches the form by ticker symbol.
-    For a given ticker, gets the most recent form of a given form_type.
-
-    Args:
-        ticker (str): The ticker symbol of the company.
-        form_type (str): The form type.
-        allow_amended_filing (Optional[bool]): Whether to allow amended filings.
-        company (Optional[str]): The name of the company.
-        email (Optional[str]): The email address of the user.
-
-    Returns:
-        str: The URL of the filing.
-
-    Raises:
-        ValueError: If the ticker symbol is not valid.
-    """
-    session = _get_session(company, email)
-    cik = get_cik_by_ticker(session, ticker)
+    Gets the most recent document info by market symbol.
     
-    return get_form_by_cik(
-        cik,
-        form_type,
-        allow_amended_filing=allow_amended_filing,
-        company=company,
-        email=email,
-    )
-
-
-
-
-def get_form_by_cik(
-        cik: str,
-        form_type: str,
-        allow_amended_filing: Optional[bool] = True,
-        company: Optional[str] = None,
-        email: Optional[str] = None,
-) -> str:
-    """Fetches the form by CIK number.
-    For a given CIK, returns the most recent form of a given form_type. By default
-    an amended version of the form_type may be retrieved (allow_amended_filing=True).
-    E.g., if form_type is "10-Q", the retrived form could be a 10-Q or 10-Q/A.
+    Returns (entity_id, document_id, retrieved_doc_type) for the given symbol 
+    and document type. The retrieved_doc_type may be a variation of the requested 
+    doc_type (e.g., amended version).
+    
     Args:
-        cik (Union[str, int]): The Central Index Key (CIK) of the company.
-        form_type (str): The form type.
-        allow_amended_filing (Optional[bool]): Whether to allow amended filings.
-        company (Optional[str]): The name of the company.
-        email (Optional[str]): The email address of the user.
-
+        symbol: The market symbol of the entity
+        doc_type: The document type to search for
+        organization: The name of the requesting organization
+        contact_email: The contact email for API access
+        
     Returns:
-        Dict[str, str]: The accession number and the form type.
-
+        Tuple of (entity_id, document_id, document_type)
+        
     Raises:
-        ValueError: If the CIK number is not valid.
+        ValueError: If no matching documents are found
     """
-    session = _get_session(company, email)
-    acc_num, _ = _get_recent_acc_num_by_cik(
-        session, cik, _form_types(form_type, allow_amended_filing)
+    session = _create_api_session(organization, contact_email)
+    entity_id = find_entity_by_symbol(symbol)
+    doc_id, retrieved_doc_type = _find_recent_document_id_by_entity(
+        session, entity_id, expand_document_types(doc_type)
     )
-    text = _get_filing(session, cik, acc_num)
+    return entity_id, doc_id, retrieved_doc_type
+
+
+def retrieve_document_by_symbol(
+    symbol: str,
+    doc_type: str,
+    allow_amendments: Optional[bool] = True,
+    organization: Optional[str] = None,
+    contact_email: Optional[str] = None,
+) -> str:
+    """
+    Retrieves a document by market symbol.
+    
+    Gets the most recent document of a specified type for a given symbol.
+    
+    Args:
+        symbol: The market symbol of the entity
+        doc_type: The document type to search for
+        allow_amendments: Whether to include amended versions
+        organization: The name of the requesting organization
+        contact_email: The contact email for API access
+        
+    Returns:
+        The document content as text
+        
+    Raises:
+        ValueError: If no matching documents are found
+    """
+    session = _create_api_session(organization, contact_email)
+    entity_id = find_entity_by_symbol(symbol)
+    
+    return retrieve_document_by_entity(
+        entity_id,
+        doc_type,
+        allow_amendments=allow_amendments,
+        organization=organization,
+        contact_email=contact_email,
+    )
+
+
+def retrieve_document_by_entity(
+        entity_id: str,
+        doc_type: str,
+        allow_amendments: Optional[bool] = True,
+        organization: Optional[str] = None,
+        contact_email: Optional[str] = None,
+) -> str:
+    """
+    Retrieves a document by entity ID.
+    
+    Gets the most recent document of a specified type for a given entity.
+    
+    Args:
+        entity_id: The identifier of the filing entity
+        doc_type: The document type to search for
+        allow_amendments: Whether to include amended versions
+        organization: The name of the requesting organization
+        contact_email: The contact email for API access
+        
+    Returns:
+        The document content as text
+        
+    Raises:
+        ValueError: If no matching documents are found
+    """
+    session = _create_api_session(organization, contact_email)
+    doc_id, _ = _find_recent_document_id_by_entity(
+        session, entity_id, expand_document_types(doc_type, allow_amendments)
+    )
+    text = _fetch_document(session, entity_id, doc_id)
     return text
 
 
-
-
-
-
-
-
-
-
-def _form_types(form_type: str, allow_amended_filing: Optional[bool] = True):
-    """Returns the list of form types.Potentialy expand to include amended filing, e.g.:
-    "10-Q" -> "10-Q/A"
-
+def open_document_in_browser(entity_id: str, doc_id: str):
+    """
+    Opens a document in the default web browser.
+    
+    For a given entity and document ID, opens the index page in the default browser.
+    
     Args:
-        form_type (str): The form type.
-        allow_amended_filing (Optional[bool]): Whether to allow amended filings.
+        entity_id: The identifier of the filing entity
+        doc_id: The unique identifier of the document
+    """
+    doc_id_clean = format_document_id_without_separators(doc_id)
+    webbrowser.open_new_tab(
+        f"{FINANCIAL_ARCHIVE_ENDPOINT}/{entity_id}/{doc_id_clean}/"
+        f"{format_document_id_with_separators(doc_id_clean)}-index.html"
+    )
 
+
+def open_document_by_symbol(
+        symbol: str,
+        doc_type: str,
+        allow_amendments: Optional[bool] = True,
+        organization: Optional[str] = None,
+        contact_email: Optional[str] = None,
+):
+    """
+    Opens a document in the default web browser by market symbol.
+    
+    For a given symbol and document type, opens the most recent matching document.
+    
+    Args:
+        symbol: The market symbol of the entity
+        doc_type: The document type to search for
+        allow_amendments: Whether to include amended versions
+        organization: The name of the requesting organization
+        contact_email: The contact email for API access
+    """
+    session = _create_api_session(organization, contact_email)
+    entity_id = find_entity_by_symbol(symbol)
+    doc_id, _ = _find_recent_document_id_by_entity(
+        session, entity_id, expand_document_types(doc_type, allow_amendments)
+    )
+    open_document_in_browser(entity_id, doc_id)
+
+
+def expand_document_types(doc_type: str, allow_amendments: Optional[bool] = True) -> List[str]:
+    """
+    Expands a document type to include variations.
+    
+    Potentially includes amended versions of a document type.
+    
+    Args:
+        doc_type: The base document type
+        allow_amendments: Whether to include amended versions
+        
     Returns:
-        List[str]: The list of form types.
-
+        List of document types to search for
+        
     Raises:
-        ValueError: If the form type is not valid.
+        ValueError: If the document type is not supported
     """
-    assert form_type in SUPPORTED_FILING_TYPES
-    if allow_amended_filing and not form_type.endswith("/A"):
-        return [form_type, f"{form_type}/A"]
+    if doc_type not in SUPPORTED_FILING_TYPES:
+        raise ValueError(f"Document type {doc_type} is not supported. "
+                         f"Supported types: {SUPPORTED_FILING_TYPES}")
+                         
+    if allow_amendments and not doc_type.endswith("/A"):
+        return [doc_type, f"{doc_type}/A"]
     else:
-        return [form_type]
+        return [doc_type]
 
 
-
-
-
-
-
-
-
-
-
-def _search_url(cik: Union[str, int]) -> str:
-    """Generates the search URL for the SEC EDGAR archives.
-
-    Args:
-        cik (Union[str, int]): The Central Index Key (CIK) of the company.
-
-    Returns:
-        str: The search URL of the SEC EDGAR archives.
+def generate_search_url(entity_identifier: Union[str, int]) -> str:
     """
-    search_string = f"CIK={cik}&Find=Search&owner=exclude&action=getcompany"
-    url = f"{SEC_SEARCH_URL}?{search_string}"
-    return url
+    Generates a search URL for the financial data repository.
+    
+    Args:
+        entity_identifier: The identifier of the entity to search for
+        
+    Returns:
+        The search URL
+    """
+    search_params = f"CIK={entity_identifier}&Find=Search&owner=exclude&action=getcompany"
+    return f"{FINANCIAL_SEARCH_ENDPOINT}?{search_params}"
 
 
-
-def _get_session(
-        company: Optional[str] = "mycompany",
-        email: Optional[str] = "myemail.com"
+def _create_api_session(
+        organization: Optional[str] = None,
+        contact_email: Optional[str] = None
 ) -> requests.Session:
-    """Creates a requests session with the SEC EDGAR archives.
-
-    Args:
-        company (Optional[str]): The name of the company.
-        email (Optional[str]): The email address of the user.
-
-    Returns:
-        requests.Session: The requests session.
     """
-    if company is None:
-        company = os.environ.get("SEC_API_ORGANIZATION")
-    if email is None:
-        email = os.environ.get("SEC_API_EMAIL")
-    assert company
-    assert email
+    Creates an authenticated session for API access.
+    
+    Args:
+        organization: The name of the requesting organization
+        contact_email: The contact email for API access
+        
+    Returns:
+        An authenticated session
+        
+    Raises:
+        AssertionError: If required credentials are missing
+    """
+    # Use provided credentials or fall back to environment variables
+    if organization is None:
+        organization = os.environ.get("FINANCIAL_API_ORGANIZATION", "FinBuddyResearch")
+    if contact_email is None:
+        contact_email = os.environ.get("FINANCIAL_API_EMAIL", "research@finbuddy.ai")
+        
+    # Ensure we have valid credentials
+    if not organization or not contact_email:
+        raise ValueError("API access requires organization name and contact email")
 
+    # Create and configure the session
     session = requests.Session()
     session.headers.update({
-        "User-Agent": f"{company} ({email})",
+        "User-Agent": f"{organization} ({contact_email})",
         "Content-type": "text/html",
+        "Accept": "application/json, text/html",
     })
     return session
 
-def archive_url(cik: Union[str, int], accession_number: Union[str, int]) -> str:
-    """Generates the URL for the SEC EDGAR archive.
 
-    Args:
-        cik (Union[str, int]): The Central Index Key (CIK) of the company.
-        accession_number (Union[str, int]): The accession number of the filing.
-
-    Returns:
-        str: The URL of the SEC EDGAR archive.
+def generate_document_url(entity_id: Union[str, int], doc_id: Union[str, int]) -> str:
     """
-    filename = f"{_add_dashes(accession_number)}.txt"
-    accession_number = _drop_dashes(accession_number)
-    return f"{SEC_ARCHIVE_URL}/{cik}/{accession_number}/{filename}"
-
-def _add_dashes(accession_number: Union[str, int]) -> str:
-    """Adds dashes to the accession number.
-
+    Generates a URL for a document in the financial data repository.
+    
     Args:
-        accession_number (Union[str, int]): The accession number of the filing.
-
+        entity_id: The identifier of the filing entity
+        doc_id: The unique identifier of the document
+        
     Returns:
-        str: The accession number with dashes.
+        The document URL
     """
-    if isinstance(accession_number, int):
-        accession_number = str(accession_number)
-    return f"{accession_number[:10]}-{accession_number[10:12]}-{accession_number[12:]}"
+    filename = f"{format_document_id_with_separators(doc_id)}.txt"
+    doc_id_clean = format_document_id_without_separators(doc_id)
+    return f"{FINANCIAL_ARCHIVE_ENDPOINT}/{entity_id}/{doc_id_clean}/{filename}"
 
-def _drop_dashes(accession_number: Union[str, int]) -> str:
-    """Drops dashes from the accession number.
 
+def format_document_id_with_separators(doc_id: Union[str, int]) -> str:
+    """
+    Formats a document ID with separators (e.g., 000123456789-01-123456).
+    
     Args:
-        accession_number (Union[str, int]): The accession number of the filing.
-
+        doc_id: The document ID to format
+        
     Returns:
-        str: The accession number without dashes.
+        The formatted document ID
     """
-    accession_number = str(accession_number).replace("-", "")
-    return accession_number.zfill(18)
+    doc_id_str = str(doc_id)
+    
+    # If already contains separators, return as is
+    if "-" in doc_id_str:
+        return doc_id_str
+        
+    # Otherwise add separators in standard format
+    doc_id_str = doc_id_str.zfill(18)  # Ensure proper length
+    return f"{doc_id_str[:10]}-{doc_id_str[10:12]}-{doc_id_str[12:]}"
+
+
+def format_document_id_without_separators(doc_id: Union[str, int]) -> str:
+    """
+    Formats a document ID without separators (e.g., 000123456789-01-123456 -> 000123456789-01-123456).
+    
+    Args:
+        doc_id: The document ID to format
+        
+    Returns:
+        The formatted document ID
+    """
+    doc_id_str = str(doc_id).replace("-", "")
+    return doc_id_str.zfill(18)  # Ensure proper length
