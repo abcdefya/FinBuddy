@@ -5,7 +5,7 @@ import re
 from typing import List
 
 
-class SECSection(Enum):
+class FinancialDocSection(Enum):
     PROSPECTUS_SUMMARY = re.compile(r"^(?:prospectus )?summary$")
     ABOUT_PROSPECTUS = re.compile(r"about this prospectus")
     FORWARD_LOOKING_STATEMENTS = re.compile(r"forward[ -]looking statements")
@@ -67,75 +67,75 @@ class SECSection(Enum):
 
 ALL_SECTIONS = "_ALL"
 
-section_string_to_enum = {enum.name: enum for enum in SECSection}
+section_string_to_enum = {enum.name: enum for enum in FinancialDocSection}
 
 # NOTE(robinson) - Sections are listed in the following document from SEC
 # ref: https://www.sec.gov/files/form10-k.pdf
 SECTIONS_10K = (
-    SECSection.BUSINESS,  # ITEM 1
-    SECSection.RISK_FACTORS,  # ITEM 1A
-    SECSection.UNRESOLVED_STAFF_COMMENTS,  # ITEM 1B
-    SECSection.PROPERTIES,  # ITEM 2
-    SECSection.LEGAL_PROCEEDINGS,  # ITEM 3
-    SECSection.MINE_SAFETY,  # ITEM 4
-    SECSection.MARKET_FOR_REGISTRANT_COMMON_EQUITY,  # ITEM 5
+    FinancialDocSection.BUSINESS,  # ITEM 1
+    FinancialDocSection.RISK_FACTORS,  # ITEM 1A
+    FinancialDocSection.UNRESOLVED_STAFF_COMMENTS,  # ITEM 1B
+    FinancialDocSection.PROPERTIES,  # ITEM 2
+    FinancialDocSection.LEGAL_PROCEEDINGS,  # ITEM 3
+    FinancialDocSection.MINE_SAFETY,  # ITEM 4
+    FinancialDocSection.MARKET_FOR_REGISTRANT_COMMON_EQUITY,  # ITEM 5
     # NOTE(robinson) - ITEM 6 is "RESERVED"
-    SECSection.MANAGEMENT_DISCUSSION,  # ITEM 7
-    SECSection.MARKET_RISK_DISCLOSURES,  # ITEM 7A
-    SECSection.FINANCIAL_STATEMENTS,  # ITEM 8
-    SECSection.ACCOUNTING_DISAGREEMENTS,  # ITEM 9
-    SECSection.CONTROLS_AND_PROCEDURES,  # ITEM 9A
+    FinancialDocSection.MANAGEMENT_DISCUSSION,  # ITEM 7
+    FinancialDocSection.MARKET_RISK_DISCLOSURES,  # ITEM 7A
+    FinancialDocSection.FINANCIAL_STATEMENTS,  # ITEM 8
+    FinancialDocSection.ACCOUNTING_DISAGREEMENTS,  # ITEM 9
+    FinancialDocSection.CONTROLS_AND_PROCEDURES,  # ITEM 9A
     # NOTE(robinson) - ITEM 9B is other information
-    SECSection.FOREIGN_JURISDICTIONS,  # ITEM 9C
-    SECSection.MANAGEMENT,  # ITEM 10
-    SECSection.COMPENSATION,  # ITEM 11
-    SECSection.PRINCIPAL_STOCKHOLDERS,  # ITEM 12
-    SECSection.RELATED_PARTY_TRANSACTIONS,  # ITEM 13
-    SECSection.ACCOUNTING_FEES,  # ITEM 14
-    SECSection.EXHIBITS,  # ITEM 15
-    SECSection.FORM_SUMMARY,  # ITEM 16
+    FinancialDocSection.FOREIGN_JURISDICTIONS,  # ITEM 9C
+    FinancialDocSection.MANAGEMENT,  # ITEM 10
+    FinancialDocSection.COMPENSATION,  # ITEM 11
+    FinancialDocSection.PRINCIPAL_STOCKHOLDERS,  # ITEM 12
+    FinancialDocSection.RELATED_PARTY_TRANSACTIONS,  # ITEM 13
+    FinancialDocSection.ACCOUNTING_FEES,  # ITEM 14
+    FinancialDocSection.EXHIBITS,  # ITEM 15
+    FinancialDocSection.FORM_SUMMARY,  # ITEM 16
 )
 
 # NOTE(robinson) - Sections are listed in the following document from SEC
 # ref: https://www.sec.gov/files/form10-q.pdf
 SECTIONS_10Q = (
     # Part I - Financial information
-    SECSection.FINANCIAL_STATEMENTS,  # ITEM 1
-    SECSection.MANAGEMENT_DISCUSSION,  # ITEM 2
-    SECSection.MARKET_RISK_DISCLOSURES,  # ITEM 3
-    SECSection.CONTROLS_AND_PROCEDURES,  # ITEM 4
+    FinancialDocSection.FINANCIAL_STATEMENTS,  # ITEM 1
+    FinancialDocSection.MANAGEMENT_DISCUSSION,  # ITEM 2
+    FinancialDocSection.MARKET_RISK_DISCLOSURES,  # ITEM 3
+    FinancialDocSection.CONTROLS_AND_PROCEDURES,  # ITEM 4
     # Part II - Other information
-    SECSection.LEGAL_PROCEEDINGS,  # ITEM 1
-    SECSection.RISK_FACTORS,  # ITEM 1A
-    SECSection.USE_OF_PROCEEDS,  # ITEM 2
-    SECSection.DEFAULTS,  # ITEM 3
-    SECSection.MINE_SAFETY,  # ITEM 4
-    SECSection.OTHER_INFORMATION,  # ITEM 5
+    FinancialDocSection.LEGAL_PROCEEDINGS,  # ITEM 1
+    FinancialDocSection.RISK_FACTORS,  # ITEM 1A
+    FinancialDocSection.USE_OF_PROCEEDS,  # ITEM 2
+    FinancialDocSection.DEFAULTS,  # ITEM 3
+    FinancialDocSection.MINE_SAFETY,  # ITEM 4
+    FinancialDocSection.OTHER_INFORMATION,  # ITEM 5
 )
 
 SECTIONS_S1 = (
-    SECSection.PROSPECTUS_SUMMARY,
-    SECSection.ABOUT_PROSPECTUS,
-    SECSection.FORWARD_LOOKING_STATEMENTS,
-    SECSection.RISK_FACTORS,
-    SECSection.USE_OF_PROCEEDS,
-    SECSection.DIVIDEND_POLICY,
-    SECSection.CAPITALIZATION,
-    SECSection.DILUTION,
-    SECSection.MANAGEMENT_DISCUSSION,
-    SECSection.BUSINESS,
-    SECSection.MANAGEMENT,
-    SECSection.COMPENSATION,
-    SECSection.RELATED_PARTY_TRANSACTIONS,
-    SECSection.PRINCIPAL_STOCKHOLDERS,
-    SECSection.DESCRIPTION_OF_STOCK,
-    SECSection.DESCRIPTION_OF_DEBT,
-    SECSection.FUTURE_SALE,
-    SECSection.US_TAX,
-    SECSection.UNDERWRITING,
-    SECSection.LEGAL_MATTERS,
-    SECSection.EXPERTS,
-    SECSection.MORE_INFORMATION,
+    FinancialDocSection.PROSPECTUS_SUMMARY,
+    FinancialDocSection.ABOUT_PROSPECTUS,
+    FinancialDocSection.FORWARD_LOOKING_STATEMENTS,
+    FinancialDocSection.RISK_FACTORS,
+    FinancialDocSection.USE_OF_PROCEEDS,
+    FinancialDocSection.DIVIDEND_POLICY,
+    FinancialDocSection.CAPITALIZATION,
+    FinancialDocSection.DILUTION,
+    FinancialDocSection.MANAGEMENT_DISCUSSION,
+    FinancialDocSection.BUSINESS,
+    FinancialDocSection.MANAGEMENT,
+    FinancialDocSection.COMPENSATION,
+    FinancialDocSection.RELATED_PARTY_TRANSACTIONS,
+    FinancialDocSection.PRINCIPAL_STOCKHOLDERS,
+    FinancialDocSection.DESCRIPTION_OF_STOCK,
+    FinancialDocSection.DESCRIPTION_OF_DEBT,
+    FinancialDocSection.FUTURE_SALE,
+    FinancialDocSection.US_TAX,
+    FinancialDocSection.UNDERWRITING,
+    FinancialDocSection.LEGAL_MATTERS,
+    FinancialDocSection.EXPERTS,
+    FinancialDocSection.MORE_INFORMATION,
 )
 
 
