@@ -49,8 +49,6 @@ modin
 setuptools>=41.4.0
 wheel>=0.33.6
 
-
-
 pdfkit==1.0.0
 marker-pdf
 pandas==2.0.3
