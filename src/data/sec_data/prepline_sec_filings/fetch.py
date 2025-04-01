@@ -24,7 +24,8 @@ else:
 
 from ratelimit import limits, sleep_and_retry
 
-from .document_processor import SUPPORTED_FILING_TYPES
+from src.data.sec_data.prepline_sec_filings.document_processor import SUPPORTED_FILING_TYPES
+
 
 # Public repository endpoints
 FINANCIAL_ARCHIVE_ENDPOINT: Final[str] = "https://www.sec.gov/Archives/edgar/data"
