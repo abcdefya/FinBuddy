@@ -1,5 +1,5 @@
-from finbuddy.data_source import *
-from finbuddy.functional import *
+from src.data import *
+from src.functional import *
 from textwrap import dedent
 
 library = [
