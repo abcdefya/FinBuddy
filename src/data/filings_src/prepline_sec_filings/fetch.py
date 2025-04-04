@@ -1,5 +1,4 @@
 """Module for fetching data from the SEC EDGAR Archives"""
-
 import json
 import os
 import re
@@ -16,7 +15,7 @@ import webbrowser
 
 from ratelimit import limits, sleep_and_retry
 
-from src.data.filings_src.prepline_sec_filings.document_processor import VALID_FILING_TYPES
+from prepline_sec_filings.sec_document import VALID_FILING_TYPES
 
 SEC_ARCHIVE_URL: Final[str] = "https://www.sec.gov/Archives/edgar/data"
 SEC_SEARCH_URL: Final[str] = "http://www.sec.gov/cgi-bin/browse-edgar"
@@ -24,12 +23,11 @@ SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions"
 
 
 def get_filing(
-    accession_number: Union[str, int], cik: Union[str, int], company: str, email: str
+    cik: Union[str, int], accession_number: Union[str, int], company: str, email: str
 ) -> str:
     """Fetches the specified filing from the SEC EDGAR Archives. Conforms to the rate
     limits specified on the SEC website.
     ref: https://www.sec.gov/os/accessing-edgar-data"""
-
     session = _get_session(company, email)
     return _get_filing(session, cik, accession_number)
 
@@ -41,46 +39,18 @@ def _get_filing(
 ) -> str:
     """Wrapped so filings can be retrieved with an existing session."""
     url = archive_url(cik, accession_number)
-    # headers = {
-    # 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    # }
-    company = "Indiana-University-Bloomington"
-    email = "athecolab@gmail.com"
-    headers = {
-        "User-Agent": f"{company} {email}",
-        "Content-Type": "text/html",
-    }
-    response = session.get(url, headers=headers)
+    response = session.get(url)
     response.raise_for_status()
     return response.text
 
 
 @sleep_and_retry
-@limits(calls=2, period=1)
-def get_cik_by_ticker(ticker: str) -> str:
+@limits(calls=10, period=1)
+def get_cik_by_ticker(session: requests.Session, ticker: str) -> str:
     """Gets a CIK number from a stock ticker by running a search on the SEC website."""
     cik_re = re.compile(r".*CIK=(\d{10}).*")
     url = _search_url(ticker)
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-    # headers =  {
-    # 'authority': 'www.google.com',
-    # 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    # 'accept-language': 'en-US,en;q=0.9',
-    # 'cache-control': 'max-age=0',
-    # 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-    # # Add more headers as needed
-    # }
-    company = "Indiana-University-Bloomington"
-    email = "athecolab@gmail.com"
-    headers = {
-        "User-Agent": f"{company} {email}",
-        "Content-Type": "text/html",
-    }
-    response = requests.get(url, stream=True, headers=headers)
-    # response = requests.get(url, headers=headers)
-    # response = requests.get(url)
+    response = session.get(url, stream=True)
     response.raise_for_status()
     results = cik_re.findall(response.text)
     return str(results[0])
@@ -95,9 +65,7 @@ def get_forms_by_cik(session: requests.Session, cik: Union[str, int]) -> dict:
     response.raise_for_status()
     content = json.loads(response.content)
     recent_forms = content["filings"]["recent"]
-    form_types = {
-        k: v for k, v in zip(recent_forms["accessionNumber"], recent_forms["form"])
-    }
+    form_types = {k: v for k, v in zip(recent_forms["accessionNumber"], recent_forms["form"])}
     return form_types
 
 
@@ -137,9 +105,7 @@ def get_recent_cik_and_acc_by_ticker(
     """
     session = _get_session(company, email)
     cik = get_cik_by_ticker(session, ticker)
-    acc_num, retrieved_form_type = _get_recent_acc_num_by_cik(
-        session, cik, _form_types(form_type)
-    )
+    acc_num, retrieved_form_type = _get_recent_acc_num_by_cik(session, cik, _form_types(form_type))
     return cik, acc_num, retrieved_form_type
 
 
@@ -154,11 +120,7 @@ def get_form_by_ticker(
     session = _get_session(company, email)
     cik = get_cik_by_ticker(session, ticker)
     return get_form_by_cik(
-        cik,
-        form_type,
-        allow_amended_filing=allow_amended_filing,
-        company=company,
-        email=email,
+        cik, form_type, allow_amended_filing=allow_amended_filing, company=company, email=email
     )
 
 
@@ -196,9 +158,7 @@ def open_form(cik, acc_num):
     """For a given cik and accession number, opens the index page in default browser for the
     associated SEC form"""
     acc_num = _drop_dashes(acc_num)
-    webbrowser.open_new_tab(
-        f"{SEC_ARCHIVE_URL}/{cik}/{acc_num}/{_add_dashes(acc_num)}-index.html"
-    )
+    webbrowser.open_new_tab(f"{SEC_ARCHIVE_URL}/{cik}/{acc_num}/{_add_dashes(acc_num)}-index.html")
 
 
 def open_form_by_ticker(
@@ -244,10 +204,7 @@ def _drop_dashes(accession_number: Union[str, int]) -> str:
     return accession_number.zfill(18)
 
 
-def _get_session(
-    company: Optional[str] = "Indiana-University-Bloomington",
-    email: Optional[str] = "athecolab@gmail.com",
-) -> requests.Session:
+def _get_session(company: Optional[str] = None, email: Optional[str] = None) -> requests.Session:
     """Creates a requests sessions with the appropriate headers set. If these headers are not
     set, SEC will reject your request.
     ref: https://www.sec.gov/os/accessing-edgar-data"""
