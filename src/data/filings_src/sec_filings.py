@@ -31,7 +31,7 @@ from src.data.filings_src.prepline_sec_filings.sections import (
     SECTIONS_10Q,
     SECTIONS_S1,
 )
-from src.data.filings_src.prepline_sec_filings.document_processor import (
+from src.data.filings_src.prepline_sec_filings.sec_document import (
     SECDocument,
     REPORT_TYPES,
     VALID_FILING_TYPES,
