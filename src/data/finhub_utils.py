@@ -7,7 +7,7 @@ from typing import Annotated, Dict, List, Optional, Union, Any, Callable
 from collections import defaultdict
 from functools import wraps
 from datetime import datetime
-from ..utils import decorate_all_methods, save_output, SavePathType
+from src.utils.utils import decorate_all_methods, save_output, SavePathType
 
 # Global client instance for thread safety
 finnhub_client = None

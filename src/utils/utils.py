@@ -1,81 +1,54 @@
-import numpy as np
-import pandas as pd
 import os
-import sys
-import dill
-import json 
-
+import json
+import pandas as pd
 from datetime import date, timedelta, datetime
-from utils.exception import CustomException
 from typing import Annotated
 
-SavePathType = Annotated[str, 'File path to save data. If None, data is not saved']
 
-def save_output_csv(data: pd.DataFrame, tag: str, save_path: SavePathType = None) -> None:
-    """
-    Save output data to a CSV file.
-    
-    Parameters:"
-    """
-    try:
-        if save_path is not None:
-            data.to_csv(save_path, index=False)
-            print(f'{tag} data saved to {save_path}')
-    except Exception as e:
-        raise CustomException(e, sys)
+# Define custom annotated types
+# VerboseType = Annotated[bool, "Whether to print data to console. Default to True."]
+SavePathType = Annotated[str, "File path to save data. If None, data is not saved."]
 
 
-def get_current_date() -> str:
-    """
-    Get the current date in the format 'YYYY-MM-DD'.
-    """
-    return date.today().strftime('%Y-%m-%d')
+# def process_output(data: pd.DataFrame, tag: str, verbose: VerboseType = True, save_path: SavePathType = None) -> None:
+#     if verbose:
+#         print(data.to_string())
+#     if save_path:
+#         data.to_csv(save_path)
+#         print(f"{tag} saved to {save_path}")
 
-def register_keys(file_path):
-    """
-    Register API keys from a JSON file.
-    
-    Parameters:
-    file_path: str
-        File path to the JSON file containing the API keys.
-        
-    Returns:
-    dict
-        A dictionary containing the API keys.
-    """
-    try:
-        with open(file_path, 'r') as file_obj:
-            keys = json.load(file_obj)
-        for keys, value in keys.items():
-            os.environ[keys] = value
-    except Exception as e:
-        raise CustomException(e, sys)
-    
-def decorate_mothods(decorator):
-    def class_decorate(cls):
+
+def save_output(data: pd.DataFrame, tag: str, save_path: SavePathType = None) -> None:
+    if save_path:
+        data.to_csv(save_path)
+        print(f"{tag} saved to {save_path}")
+
+
+def get_current_date():
+    return date.today().strftime("%Y-%m-%d")
+
+
+def register_keys_from_json(file_path):
+    with open(file_path, "r") as f:
+        keys = json.load(f)
+    for key, value in keys.items():
+        os.environ[key] = value
+
+
+def decorate_all_methods(decorator):
+    def class_decorator(cls):
         for attr_name, attr_value in cls.__dict__.items():
             if callable(attr_value):
                 setattr(cls, attr_name, decorator(attr_value))
         return cls
-    
-    return class_decorate
+
+    return class_decorator
+
 
 def get_next_weekday(date):
-    """
-    Get the next weekday from a given date.
-    
-    Parameters:
-    date_obj: datetime
-        The given date.
-    weekday: int
-        The weekday to get.
-        
-    Returns:
-    datetime
-        The next weekday from the given date.
-    """
+
     if not isinstance(date, datetime):
-        date = datetime.strptime(date, '%Y-%m-%d')
+        date = datetime.strptime(date, "%Y-%m-%d")
 
     if date.weekday() >= 5:
         days_to_add = 7 - date.weekday()
@@ -85,13 +58,26 @@ def get_next_weekday(date):
         return date
 
 
-def save_object(file_path, obj):
-    try:
-        dir_path = os.path.dirname(file_path)
+# def create_inner_assistant(
+#         name, system_message, llm_config, max_round=10,
+#         code_execution_config=None
+#     ):
 
-        os.makedirs(dir_path, exist_ok=True)
-
-        with open(file_path, 'wb') as file_obj:
-            dill.dump(obj, file_obj)
-    except Exception as e:
-        raise CustomException(e, sys)
+#     inner_assistant = autogen.AssistantAgent(
+#         name=name,
+#         system_message=system_message + "Reply TERMINATE when the task is done.",
+#         llm_config=llm_config,
+#         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
+#     )
+#     executor = autogen.UserProxyAgent(
+#         name=f"{name}-executor",
+#         human_input_mode="NEVER",
+#         code_execution_config=code_execution_config,
+#         default_auto_reply="",
+#         is_termination_msg=lambda x: x.get("content", "").find("TERMINATE") >= 0,
+#     )
+#     assistant.register_nested_chats(
+#         [{"recipient": assistant, "message": reflection_message, "summary_method": "last_msg", "max_turns": 1}],
+#         trigger=ConversableAgent
+#         )
+#     return manager

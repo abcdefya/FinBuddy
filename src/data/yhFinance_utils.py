@@ -12,7 +12,7 @@ from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Annotated
 from pandas import DataFrame
 
-from ..utils import save_output, SavePathType, decorate_all_methods
+from src.utils.utils import save_output, SavePathType, decorate_all_methods
 
 
 def init_ticker(func: Callable) -> Callable:

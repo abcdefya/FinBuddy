@@ -10,7 +10,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Annotated, Dict, List, Optional, Union, Any, Tuple
-from ..utils import decorate_all_methods, get_next_weekday
+from src.utils.utils import decorate_all_methods, get_next_weekday
 
 # Configuration
 API_BASE_URL = "https://financialmodelingprep.com/api/v3"

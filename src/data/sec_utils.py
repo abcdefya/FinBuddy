@@ -13,7 +13,7 @@ from functools import wraps
 from typing import Any, Dict, Optional, Union, List, Tuple, Annotated
 from sec_api import ExtractorApi, QueryApi, RenderApi
 
-from ..utils import SavePathType, decorate_all_methods
+from src.utils.utils import SavePathType, decorate_all_methods
 from ..data import FMPUtils
 
 # Configure logging
