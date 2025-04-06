@@ -4,6 +4,7 @@ ipython
 huggingface_hub
 transformers
 sentence-transformers
+autogen
 
 # Financial libraries
 finnhub-python
