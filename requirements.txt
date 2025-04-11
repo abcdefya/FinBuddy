@@ -10,6 +10,7 @@ yfinance
 mplfinance
 backtrader
 sec_api
+ccxt
 
 # data handling
 numpy
