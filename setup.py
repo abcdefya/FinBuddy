@@ -14,11 +14,11 @@ setup(
     include_package_data=True,
     author="DO THE ANH",
     author_email="anh.dothe47@gmail.com",
-    url=",
+    url="",
     license="MIT",
     packages=find_packages(),
     install_requires=REQUIRES,
-    description="FinBuddy",
+    description="FinBuddy: An Open-Source AI Agent Platform for Financial Applications using LLMs",
     long_description="""FinBuddy""",
     classifiers=[
         # Trove classifiers
@@ -35,7 +35,7 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
-    keywords="Financial Large Language Models, Multi AI Agents",
+    keywords="Financial Large Language Models, AI Agents",
     platforms=["any"],
     python_requires=">=3.10, <3.12",
 )
