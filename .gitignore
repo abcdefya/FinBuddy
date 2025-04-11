@@ -173,6 +173,7 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# APIS
+# API keys and configuration
 OAI_CONFIG
 config_api_keys
+OAI_CONFIG_LIST
