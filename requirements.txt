@@ -4,6 +4,7 @@ ipython
 huggingface_hub
 transformers
 sentence-transformers
+ag2[openai]
 
 # Financial libraries
 finnhub-python
