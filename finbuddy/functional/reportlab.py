@@ -241,9 +241,9 @@ class ReportLabUtils:
             full_length = right_column_width - 2 * margin
 
             data = [
-                ["FinRobot"],
+                ["finbuddy"],
                 ["https://ai4finance.org/"],
-                ["https://github.com/AI4Finance-Foundation/FinRobot"],
+                ["https://github.com/AI4Finance-Foundation/finbuddy"],
                 [f"Report date: {filing_date}"],
             ]
             col_widths = [full_length]

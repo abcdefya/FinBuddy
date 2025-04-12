@@ -3,12 +3,12 @@ from langchain_chroma import Chroma
 from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain.schema import Document
-from finrobot.data_source.earnings_calls_src import get_earnings_all_docs
-from finrobot.data_source.filings_src import sec_main as unstructured_sec_main
-from finrobot.data_source.marker_sec_src.sec_filings_to_pdf import sec_save_pdfs
-from finrobot.data_source.marker_sec_src.pdf_to_md import run_marker as run_marker_single
-from finrobot.data_source.marker_sec_src.pdf_to_md_parallel import run_marker_mp
-from finrobot.data_source.finance_data import get_data
+from finbuddy.data_source.earnings_calls_src import get_earnings_all_docs
+from finbuddy.data_source.filings_src import sec_main as unstructured_sec_main
+from finbuddy.data_source.marker_sec_src.sec_filings_to_pdf import sec_save_pdfs
+from finbuddy.data_source.marker_sec_src.pdf_to_md import run_marker as run_marker_single
+from finbuddy.data_source.marker_sec_src.pdf_to_md_parallel import run_marker_mp
+from finbuddy.data_source.finance_data import get_data
 from typing import List, Optional
 import os
 SAVE_DIR = "output/SEC_EDGAR_FILINGS_MD"
