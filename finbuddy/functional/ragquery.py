@@ -3,12 +3,12 @@ from langchain_chroma import Chroma
 from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain.schema import Document
-from finbuddy.data_source.earnings_calls_src import get_earnings_all_docs
-from finbuddy.data_source.filings_src import sec_main as unstructured_sec_main
-from finbuddy.data_source.marker_sec_src.sec_filings_to_pdf import sec_save_pdfs
-from finbuddy.data_source.marker_sec_src.pdf_to_md import run_marker as run_marker_single
-from finbuddy.data_source.marker_sec_src.pdf_to_md_parallel import run_marker_mp
-from finbuddy.data_source.finance_data import get_data
+from finbuddy.data_src.earnings_calls_src import get_earnings_all_docs
+from finbuddy.data_src.filings_src import sec_main as unstructured_sec_main
+from finbuddy.data_src.marker_sec_src.sec_filings_to_pdf import sec_save_pdfs
+from finbuddy.data_src.marker_sec_src.pdf_to_md import run_marker as run_marker_single
+from finbuddy.data_src.marker_sec_src.pdf_to_md_parallel import run_marker_mp
+from finbuddy.data_src.finance_data import get_data
 from typing import List, Optional
 import os
 SAVE_DIR = "output/SEC_EDGAR_FILINGS_MD"
@@ -19,7 +19,7 @@ def rag_database_earnings_call(
         year: str)->str:
         
         #assert quarter in earnings_call_quarter_vals, "The quarter should be from Q1, Q2, Q3, Q4"
-        earnings_docs, earnings_call_quarter_vals, speakers_list_1, speakers_list_2, speakers_list_3, speakers_list_4 = get_data(ticker=ticker,year=year,data_source='earnings_calls')
+        earnings_docs, earnings_call_quarter_vals, speakers_list_1, speakers_list_2, speakers_list_3, speakers_list_4 = get_data(ticker=ticker,year=year,data_src='earnings_calls')
 
         emb_fn = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
 
@@ -108,7 +108,7 @@ def rag_database_sec(
         FROM_MARKDOWN = False,
         filing_types = ['10-K','10-Q'])->str:
     if not FROM_MARKDOWN:
-        sec_data,sec_form_names = get_data(ticker=ticker, year=year,data_source='unstructured',include_amends=True,filing_types=filing_types)
+        sec_data,sec_form_names = get_data(ticker=ticker, year=year,data_src='unstructured',include_amends=True,filing_types=filing_types)
         emb_fn = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
         text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1024,
@@ -157,8 +157,8 @@ def rag_database_sec(
         return query_database_unstructured_sec, sec_form_names
     
     elif FROM_MARKDOWN:
-        sec_data,sec_form_names = get_data(ticker=ticker, year=year,data_source='unstructured',include_amends=True,filing_types=filing_types)
-        get_data(ticker=ticker,year=year,data_source='marker_pdf',batch_processing=False,batch_multiplier=1)
+        sec_data,sec_form_names = get_data(ticker=ticker, year=year,data_src='unstructured',include_amends=True,filing_types=filing_types)
+        get_data(ticker=ticker,year=year,data_src='marker_pdf',batch_processing=False,batch_multiplier=1)
 
         headers_to_split_on = [
         ("#", "Header 1"),
