@@ -1,11 +1,11 @@
 from typing import List
 import re
-from finrobot.data_source.filings_src.sec_filings import SECExtractor
+from finbuddy.data_src.filings_src.sec_filings import SECExtractor
 import concurrent.futures
 from functools import partial
-from finrobot.data_source.filings_src.prepline_sec_filings.fetch import get_cik_by_ticker
+from finbuddy.data_src.filings_src.prepline_sec_filings.fetch import get_cik_by_ticker
 import requests
-from finrobot.data_source.filings_src.prepline_sec_filings.fetch import get_filing
+from finbuddy.data_src.filings_src.prepline_sec_filings.fetch import get_filing
 import pandas as pd
 from datetime import datetime
 from langchain.schema import Document

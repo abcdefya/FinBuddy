@@ -26,7 +26,7 @@ from unstructured.documents.html import HTMLDocument
 from unstructured.nlp.partition import is_possible_title
 
 # from src.prepline_sec_filings.title import is_possible_title
-from finrobot.data_source.filings_src.prepline_sec_filings.sections import SECSection
+from finbuddy.data_src.filings_src.prepline_sec_filings.sections import SECSection
 
 
 VALID_FILING_TYPES: Final[List[str]] = [
