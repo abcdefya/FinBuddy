@@ -1,0 +1,10 @@
+[project]
+name = "finbuddy-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.9.2",
+    "pip>=25.1.1",
+]
